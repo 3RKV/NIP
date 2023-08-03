@@ -46,7 +46,7 @@ void BluetoothLE::printPS002(String &val)
 void BluetoothLE::printXGZ(String &val)
 {
     std::string str(val.c_str());
-    pPS002Characteristic->setValue<std::string>(str);
+    XGZCharacteristic->setValue<std::string>(str);
     // XGZCharacteristic->setValue((uint8_t *)val.c_str(), val.length());
-    pPS002Characteristic->notify(true);
+    XGZCharacteristic->notify(true);
 }

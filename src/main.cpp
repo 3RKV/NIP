@@ -19,7 +19,7 @@
 #endif
 
 #ifdef XGZ
-#define K_XGZ 2
+#define K_XGZ 32
 int32_t zeroXGZ;
 XGZP6828D mysensor(K_XGZ);
 #endif
