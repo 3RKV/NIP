@@ -58,11 +58,10 @@ void XGZP6828D::readSensor(float &temperature, float &pressure)
   pressure_L = Wire.read();
   pressure_adc = ((uint32_t)(pressure_H * 65536)) + (uint32_t) (pressure_M*256) +(uint32_t) pressure_L;
   if (pressure_adc > 8388608)
-  pressure = (pressure_adc - 16777216) / _K; //unit is Pa
+  pressure = (pressure_adc - 16777216); //unit is Pa
   else
-  pressure = pressure_adc / _K;
+  pressure = pressure_adc;
   
-
   temperature_H = Wire.read();
   temperature_L = Wire.read();
   temperature_adc = ((uint16_t)temperature_H *256) + (uint16_t) temperature_L;

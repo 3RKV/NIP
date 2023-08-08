@@ -19,9 +19,9 @@
 #endif
 
 #ifdef XGZ
-#define K_XGZ 32
+
 int32_t zeroXGZ;
-XGZP6828D mysensor(K_XGZ);
+XGZP6828D mysensor(64);
 #endif
 
 #ifdef PS002
@@ -116,7 +116,7 @@ void zeroPS002Update()
   Serial.println("zeroPS002: " + (String)zeroPS002);
 }
 
-void zeroXGZUpdate()
+/* void zeroXGZUpdate()
 {
   delay(1000);
   zeroXGZ = 0;
@@ -130,7 +130,7 @@ void zeroXGZUpdate()
   zeroXGZ /= 100;
   Serial.println("zeroXGZ: " + (String)zeroXGZ);
 }
-
+ */
 void setup()
 {
   Serial.begin(115200);
@@ -188,7 +188,6 @@ void setup()
     while (true)
       delay(10);
   }
-  zeroXGZUpdate();
   #endif
 
   #ifdef TEST_MOTOR
@@ -217,18 +216,31 @@ float getPressurePS002()
 #endif
 
 #ifdef XGZ
-float getPressureXGZ()
+uint16_t getPressureXGZ()
 {
-  float val;
-  for (uint32_t i = 0; i < 10; i++)
+  const uint8_t K_XGZ [6] {64,32,16,8,4,2};
+  float pressure_ADC;
+  // for (uint32_t i = 0; i < 10; i++)
+  // {
+  float temperature;
+  mysensor.readSensor(temperature, pressure_ADC);
+  //   val -= zeroXGZ;
+  //   val += val;
+  // }
+  uint8_t i=0;
+  for (i;i<6;i++)
   {
-    float temperature;
-    mysensor.readSensor(temperature, val);
-    val -= zeroXGZ;
-    val += val;
+  pressure_ADC /= K_XGZ[i];
+  if ((pressure_ADC>65)&&(pressure_ADC <= 131)) break;
+  else if ((pressure_ADC<131)&&(pressure_ADC <= 260)) break;
+  else if ((pressure_ADC<260)&&(pressure_ADC<=500)) break;
+  else if ((pressure_ADC<500)&&(pressure_ADC<=1000)) break;
+  else if ((pressure_ADC<1000)&&(pressure_ADC<=2000)) break;
+  else if ((pressure_ADC<2000)&&(pressure_ADC<=4000)) break;
   }
-  val /= 10;
-  val *= 0.000986923;
+  Bluetooth.printK("K: " + (String)K_XGZ[i]);
+  // pressure_ADC *= 0.000986923;
+  uint16_t val = pressure_ADC;///1000;
   return val;
 }
 #endif
@@ -266,15 +278,11 @@ void loop()
   ui.tick();
 
 #ifdef PS002
-  // Serial.println("PS002 pressure: " + (String)getPressurePS002() + "ATM");
   Bluetooth.printPS002("PS002 pressure: " + (String)getPressurePS002() + "ATM");
-  // ps002Log.println("PS002 pressure: " + (String)getPressurePS002() + "ATM");
 #endif
 
 #ifdef XGZ
-  // Serial.println("XGZ pressure: " + (String)getPressureXGZ() + "ATM");
-  Bluetooth.printXGZ("XGZ pressure: " + (String)getPressureXGZ() + "ATM");
-  // xgzLog.println("XGZ pressure: " + (String)getPressureXGZ() + "ATM");
+  Bluetooth.printXGZ("XGZ pressure: " + (String)getPressureXGZ() + "Pa");
 #endif
 
 #ifdef TEST_MOTOR
