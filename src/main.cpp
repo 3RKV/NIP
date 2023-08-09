@@ -142,7 +142,6 @@ void setup()
   //--Enable OTA update--
   ArduinoOTA.begin();
   delay(300);
-  // ui.log.clear();
   SKIP_WEB_UI_BUILD:
   //-----------------------------------
 
@@ -170,9 +169,9 @@ void setup()
 float getPressurePS002()
 {
   int32_t reading = 0;
-  for (uint32_t i = 0; i < 10; i++)
+  for (uint32_t i = 0; i < 16; i++)
   reading += sensor.read() - zeroPS002;
-  reading /= 10;
+  reading /= 16;
   Bluetooth.printPS002("valADC: " + (String)reading);
   float val = (reading * K_PS002);
   Bluetooth.printXGZ("val:" + (String)val);
