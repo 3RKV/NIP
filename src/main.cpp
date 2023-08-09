@@ -1,6 +1,5 @@
 #include <ezButton.h>
 #include <GyverHX711.h>
-#include <XGZP6828D.h>
 #include <ArduinoOTA.h>
 #include <WiFiUdp.h>
 #include <GyverPortal.h>
@@ -9,19 +8,12 @@
 // #define TEST_MOTOR
 // #define SLEEP_TEST
 #define PS002
-#define XGZ
 #define WIFI_LOGIN "Radient_lab"
 #define WIFI_PASSWORD "TYU_!jqw"
 
 #ifdef TEST_MOTOR
 #define MOVE_OPEN_PIN 6
 #define MOVE_CLOSE_PIN 7
-#endif
-
-#ifdef XGZ
-
-int32_t zeroXGZ;
-XGZP6828D mysensor(64);
 #endif
 
 #ifdef PS002
@@ -80,7 +72,6 @@ bool wifiConnect = 1;
 
 GyverPortal ui;
 
-GPlog xgzLog("XGZ");
 GPlog ps002Log("PS002");
 
 const String NAME = "ECP32C3";
@@ -91,7 +82,6 @@ void build()
 {
   GP.BUILD_BEGIN(2000);
   GP.THEME(GP_DARK);
-  GP.AREA_LOG(xgzLog,5);
   GP.AREA_LOG(ps002Log,5);
   GP.TITLE("v0.0.1");
   GP.BUILD_END();
@@ -99,7 +89,6 @@ void build()
 
 void action() {
   if (ui.update()) {
-    ui.updateLog(xgzLog);
     ui.updateLog(ps002Log);
   }
 }
@@ -116,21 +105,6 @@ void zeroPS002Update()
   Serial.println("zeroPS002: " + (String)zeroPS002);
 }
 
-/* void zeroXGZUpdate()
-{
-  delay(1000);
-  zeroXGZ = 0;
-  float t;
-  float z;
-  for (int i = 0; i < 100; i++)
-  {
-    mysensor.readSensor(t, z);
-    zeroXGZ += z;
-  }
-  zeroXGZ /= 100;
-  Serial.println("zeroXGZ: " + (String)zeroXGZ);
-}
- */
 void setup()
 {
   Serial.begin(115200);
@@ -164,7 +138,6 @@ void setup()
   ui.start();
 
   ps002Log.start(128);
-  xgzLog.start(128);
 
   //--Enable OTA update--
   ArduinoOTA.begin();
@@ -179,15 +152,6 @@ void setup()
   esp_deep_sleep_enable_gpio_wakeup(16, ESP_GPIO_WAKEUP_GPIO_HIGH);
   Serial.println("Boot number: " + String(bootCount));
   print_wakeup_reason();
-  #endif
-
-  #ifdef XGZ
-  if (!mysensor.begin()) // initialize and check the device
-  {
-    Serial.println("Device XGZ not responding.");
-    while (true)
-      delay(10);
-  }
   #endif
 
   #ifdef TEST_MOTOR
@@ -209,39 +173,12 @@ float getPressurePS002()
   for (uint32_t i = 0; i < 10; i++)
   reading += sensor.read() - zeroPS002;
   reading /= 10;
+  Bluetooth.printPS002("valADC: " + (String)reading);
   float val = (reading * K_PS002);
+  Bluetooth.printXGZ("val:" + (String)val);
   float atm = kBar * val + b;
+  Bluetooth.printK("Bar:" + (String)atm);
   return atm;
-}
-#endif
-
-#ifdef XGZ
-uint16_t getPressureXGZ()
-{
-  const uint8_t K_XGZ [6] {64,32,16,8,4,2};
-  float pressure_ADC;
-  // for (uint32_t i = 0; i < 10; i++)
-  // {
-  float temperature;
-  mysensor.readSensor(temperature, pressure_ADC);
-  //   val -= zeroXGZ;
-  //   val += val;
-  // }
-  uint8_t i=0;
-  for (i;i<6;i++)
-  {
-  pressure_ADC /= K_XGZ[i];
-  if ((pressure_ADC>65)&&(pressure_ADC <= 131)) break;
-  else if ((pressure_ADC<131)&&(pressure_ADC <= 260)) break;
-  else if ((pressure_ADC<260)&&(pressure_ADC<=500)) break;
-  else if ((pressure_ADC<500)&&(pressure_ADC<=1000)) break;
-  else if ((pressure_ADC<1000)&&(pressure_ADC<=2000)) break;
-  else if ((pressure_ADC<2000)&&(pressure_ADC<=4000)) break;
-  }
-  Bluetooth.printK("K: " + (String)K_XGZ[i]);
-  // pressure_ADC *= 0.000986923;
-  uint16_t val = pressure_ADC;///1000;
-  return val;
 }
 #endif
 
@@ -278,11 +215,8 @@ void loop()
   ui.tick();
 
 #ifdef PS002
-  Bluetooth.printPS002("PS002 pressure: " + (String)getPressurePS002() + "ATM");
-#endif
-
-#ifdef XGZ
-  Bluetooth.printXGZ("XGZ pressure: " + (String)getPressureXGZ() + "Pa");
+  getPressurePS002();
+  // Bluetooth.printPS002("PS002 pressure: " + (String)getPressurePS002() + "ATM");
 #endif
 
 #ifdef TEST_MOTOR
