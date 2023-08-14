@@ -8,7 +8,7 @@ NimBLEService *BluetoothLE::pValueService = NULL;
 
 NimBLECharacteristic *BluetoothLE::pPS002Characteristic = NULL;
 
-NimBLECharacteristic *BluetoothLE::XGZCharacteristic = NULL;
+// NimBLECharacteristic *BluetoothLE::XGZCharacteristic = NULL;
 
 NimBLECharacteristic *BluetoothLE::KCharacteristic = NULL;
 
@@ -22,10 +22,10 @@ void BluetoothLE::init()
         NIMBLE_PROPERTY::READ |
             NIMBLE_PROPERTY::NOTIFY);
 
-    XGZCharacteristic = pValueService->createCharacteristic(
-        XGZ_CHARACTERISTIC_UUID,
-        NIMBLE_PROPERTY::READ |
-            NIMBLE_PROPERTY::NOTIFY);
+    // XGZCharacteristic = pValueService->createCharacteristic(
+    //     XGZ_CHARACTERISTIC_UUID,
+    //     NIMBLE_PROPERTY::READ |
+    //         NIMBLE_PROPERTY::NOTIFY);
     
     KCharacteristic = pValueService->createCharacteristic(
         K_CHARACTERISTIC_UUID,
@@ -48,12 +48,12 @@ void BluetoothLE::printPS002(String &val)
     pPS002Characteristic->notify(true);
 }
 
-void BluetoothLE::printXGZ(String &val)
-{
-    std::string str(val.c_str());
-    XGZCharacteristic->setValue<std::string>(str);
-    XGZCharacteristic->notify(true);
-}
+// void BluetoothLE::printXGZ(String &val)
+// {
+//     std::string str(val.c_str());
+//     XGZCharacteristic->setValue<std::string>(str);
+//     XGZCharacteristic->notify(true);
+// }
 
 void BluetoothLE::printK(String &val)
 {

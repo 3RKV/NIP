@@ -16,7 +16,7 @@
 // HOOKAH CONTROL
 #define SERVICE_UUID                                     "9a0d5a3c-2557-11ee-be56-0242ac120002"
 #define PS002_CHARACTERISTIC_UUID                        "b321ef58-3068-11ee-be56-0242ac120002"         //"PS_002"
-#define XGZ_CHARACTERISTIC_UUID                          "b321f3c2-3068-11ee-be56-0242ac120002"         //"XGZ"   
+// #define XGZ_CHARACTERISTIC_UUID                          "b321f3c2-3068-11ee-be56-0242ac120002"         //"XGZ"   
 #define K_CHARACTERISTIC_UUID                            "81e30c1a-35b8-11ee-be56-0242ac120002"                   
 
 
@@ -31,7 +31,7 @@ class BluetoothLE{
 
         static void init();
         static void printPS002(String &val);
-        static void printXGZ(String &val);
+        // static void printXGZ(String &val);
         static void printK(String &val);
         
     private:
@@ -52,7 +52,7 @@ class BluetoothLE{
 
         static NimBLEService *pValueService;
         static NimBLECharacteristic *pPS002Characteristic;
-        static NimBLECharacteristic *XGZCharacteristic;
+        // static NimBLECharacteristic *XGZCharacteristic;
         static NimBLECharacteristic *KCharacteristic;
 
                 // Обрантый вызов по умолчнию
