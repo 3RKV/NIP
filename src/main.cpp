@@ -18,11 +18,11 @@
 
 #ifdef PS002
 RTC_DATA_ATTR int bootCount = 0;
-float K_PS002 = 121 / 16777215.00;
-float kBar = 0.0827337;
+float K_PS002 = 128.00 / 16777215.00; //1,65в(1/2 опорного  напряжения) (32(коэффицент усиления) * 2^24(бит))
+float kBar = 0.087472073;//0.0827337;
 float b = 0.0103435;
 GyverHX711 sensor(5, 6, HX_GAIN32_B); // data, sck
-uint32_t zeroPS002 = 905138;
+uint32_t zeroPS002 = 896200;
 // 3426407;//411006;
 #endif
 
@@ -70,41 +70,42 @@ void print_wakeup_reason()
 
 bool wifiConnect = 1;
 
-GyverPortal ui;
+// GyverPortal ui;
 
-GPlog ps002Log("PS002");
+// GPlog ps002Log("PS002");
 
 const String NAME = "ECP32C3";
 
 BluetoothLE Bluetooth;
 //------------WebUI build------------
-void build()
-{
-  GP.BUILD_BEGIN(2000);
-  GP.THEME(GP_DARK);
-  GP.AREA_LOG(ps002Log, 5);
-  GP.TITLE("v0.0.1");
-  GP.BUILD_END();
-}
+// void build()
+// {
+//   GP.BUILD_BEGIN(2000);
+//   GP.THEME(GP_DARK);
+//   // GP.AREA_LOG(ps002Log, 5);
+//   GP.TITLE("v0.0.1");
+//   GP.BUILD_END();
+// }
 
-void action()
-{
-  if (ui.update())
-  {
-    ui.updateLog(ps002Log);
-  }
-}
+// void action()
+// {
+//   if (ui.update())
+//   {
+//     ui.updateLog(ps002Log);
+//   }
+// }
 
 //-----------------------------------
 
 void zeroPS002Update()
 {
-  delay(1000);
-  zeroPS002 = 0;
-  for (int i = 0; i < 100; i++)
-    zeroPS002 += sensor.read();
-  zeroPS002 /= 100;
-  Serial.println("zeroPS002: " + (String)zeroPS002);
+  int printZero = 0;
+  // zeroPS002 = 0;
+  for (int i = 0; i < 1000; i++)
+    printZero += sensor.read();
+  printZero /= 1000;
+  Serial.println("zeroPS002: " + (String)printZero);
+  // Bluetooth.printPS002("zeroPS002: " + (String)printZero);
 }
 
 void setup()
@@ -135,16 +136,16 @@ void setup()
   Serial.println("Wifi connected, IP address: ");
   Serial.println(WiFi.localIP());
 
-  ui.attachBuild(build);
-  ui.attach(action);
-  ui.start();
+// ui.attachBuild(build);
+// ui.attach(action);
+// ui.start();
 
-  ps002Log.start(128);
-
+// ps002Log.start(128);
+SKIP_WEB_UI_BUILD:
   //--Enable OTA update--
   ArduinoOTA.begin();
-  delay(300);
-SKIP_WEB_UI_BUILD:
+  // delay(300);
+
   //-----------------------------------
 
 #ifdef SLEEP_TEST
@@ -162,20 +163,26 @@ SKIP_WEB_UI_BUILD:
   pinMode(MOVE_CLOSE_PIN, OUTPUT);
 #endif
 
-#ifdef PS002
-  zeroPS002Update();
-#endif
+  // #ifdef PS002
+  // delay(1000);
+  // zeroPS002Update();
+  // #endif
 }
 
 #ifdef PS002
 float getPressurePS002()
 {
   int32_t reading = 0;
-  for (uint32_t i = 0; i < 16; i++)
-    reading += sensor.read() - zeroPS002;
-  reading /= 16;
-  float atm = kBar * (reading * K_PS002) + b;
+  // for (uint32_t i = 0; i < 16; i++)
+  reading = sensor.read() - zeroPS002;
+  if (reading < 0)
+    reading = 0;
+  Bluetooth.printPS002("ADC: " + (String)reading);
+  // reading /= 16;
+  float atm = kBar *  (reading * K_PS002);// + b;
+  // float atm = (reading * K_PS002);// - 1.7;
   Bluetooth.printK("Bar:" + (String)atm);
+  delay(200);
   return atm;
 }
 #endif
@@ -210,10 +217,10 @@ void Moving(bool action)
 void loop()
 {
   ArduinoOTA.handle();
-  ui.tick();
+  // ui.tick();
 
 #ifdef PS002
-  Serial.println("PS002 pressure: " + (String)getPressurePS002() + "ATM");
+  Serial.println("PS002 pressure: " + (String)getPressurePS002() + "Bar");
 #endif
 
 #ifdef TEST_MOTOR
