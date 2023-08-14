@@ -22,7 +22,7 @@ float K_PS002 = 121 / 16777215.00;
 float kBar = 0.0827337;
 float b = 0.0103435;
 GyverHX711 sensor(5, 6, HX_GAIN32_B); // data, sck
-uint32_t zeroPS002 = 3449503;
+uint32_t zeroPS002 = 905138;
 // 3426407;//411006;
 #endif
 
@@ -82,13 +82,15 @@ void build()
 {
   GP.BUILD_BEGIN(2000);
   GP.THEME(GP_DARK);
-  GP.AREA_LOG(ps002Log,5);
+  GP.AREA_LOG(ps002Log, 5);
   GP.TITLE("v0.0.1");
   GP.BUILD_END();
 }
 
-void action() {
-  if (ui.update()) {
+void action()
+{
+  if (ui.update())
+  {
     ui.updateLog(ps002Log);
   }
 }
@@ -142,27 +144,27 @@ void setup()
   //--Enable OTA update--
   ArduinoOTA.begin();
   delay(300);
-  SKIP_WEB_UI_BUILD:
+SKIP_WEB_UI_BUILD:
   //-----------------------------------
 
-  #ifdef SLEEP_TEST
+#ifdef SLEEP_TEST
   sensor.sleepMode(false);
   ++bootCount;
   esp_deep_sleep_enable_gpio_wakeup(16, ESP_GPIO_WAKEUP_GPIO_HIGH);
   Serial.println("Boot number: " + String(bootCount));
   print_wakeup_reason();
-  #endif
+#endif
 
-  #ifdef TEST_MOTOR
+#ifdef TEST_MOTOR
   buttonMove.setDebounceTime(100);
   buttonMove.setCountMode(COUNT_RISING);
   pinMode(MOVE_OPEN_PIN, OUTPUT);
   pinMode(MOVE_CLOSE_PIN, OUTPUT);
-  #endif
+#endif
 
-  #ifdef PS002
+#ifdef PS002
   zeroPS002Update();
-  #endif
+#endif
 }
 
 #ifdef PS002
@@ -170,12 +172,9 @@ float getPressurePS002()
 {
   int32_t reading = 0;
   for (uint32_t i = 0; i < 16; i++)
-  reading += sensor.read() - zeroPS002;
+    reading += sensor.read() - zeroPS002;
   reading /= 16;
-  Bluetooth.printPS002("valADC: " + (String)reading);
-  float val = (reading * K_PS002);
-  Bluetooth.printXGZ("val:" + (String)val);
-  float atm = kBar * val + b;
+  float atm = kBar * (reading * K_PS002) + b;
   Bluetooth.printK("Bar:" + (String)atm);
   return atm;
 }
@@ -214,8 +213,7 @@ void loop()
   ui.tick();
 
 #ifdef PS002
-  getPressurePS002();
-  // Bluetooth.printPS002("PS002 pressure: " + (String)getPressurePS002() + "ATM");
+  Serial.println("PS002 pressure: " + (String)getPressurePS002() + "ATM");
 #endif
 
 #ifdef TEST_MOTOR
