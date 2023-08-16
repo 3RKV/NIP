@@ -10,7 +10,7 @@
 #define PS002
 #define WIFI_LOGIN "Radient_lab"
 #define WIFI_PASSWORD "TYU_!jqw"
-
+#define BUTTON_PIN_BITMASK 0x10 // HEX:2^4
 #ifdef TEST_MOTOR
 #define MOVE_OPEN_PIN 6
 #define MOVE_CLOSE_PIN 7
@@ -30,7 +30,6 @@ unsigned long timer = 0;
 uint8_t direction;
 #endif
 
-#ifdef SLEEP_TEST
 void print_wakeup_reason()
 {
   esp_sleep_wakeup_cause_t wakeup_reason;
@@ -65,7 +64,7 @@ void print_wakeup_reason()
     break;
   }
 }
-#endif
+
 
 bool wifiConnect = 1;
 
@@ -147,13 +146,16 @@ SKIP_WEB_UI_BUILD:
 
   //-----------------------------------
 
-#ifdef SLEEP_TEST
+
   sensor.sleepMode(false);
   ++bootCount;
-  esp_deep_sleep_enable_gpio_wakeup(16, ESP_GPIO_WAKEUP_GPIO_HIGH);
+  pinMode(4,INPUT_PULLUP);
+  esp_deep_sleep_enable_gpio_wakeup(BUTTON_PIN_BITMASK, ESP_GPIO_WAKEUP_GPIO_LOW);
   Serial.println("Boot number: " + String(bootCount));
   print_wakeup_reason();
-#endif
+  delay(3000);
+  if (bootCount<3)esp_deep_sleep_start();
+
 
 #ifdef TEST_MOTOR
   buttonMove.setDebounceTime(100);
@@ -178,11 +180,11 @@ float getPressurePS002()
     reading = 0;
   Bluetooth.printPS002("ADC: " + (String)reading);
   // reading /= 16;
-  float atm = kBar *  (reading * K_PS002);// + b;
+  float pressure = kBar *  (reading * K_PS002);// + b;
   // float atm = (reading * K_PS002);// - 1.7;
-  Bluetooth.printK("Bar:" + (String)atm);
+  Bluetooth.printK("Bar:" + (String)pressure);
   delay(200);
-  return atm;
+  return pressure;
 }
 #endif
 
@@ -219,7 +221,7 @@ void loop()
   // ui.tick();
 
 #ifdef PS002
-  Serial.println("PS002 pressure: " + (String)getPressurePS002() + "Bar");
+  getPressurePS002();
 #endif
 
 #ifdef TEST_MOTOR
