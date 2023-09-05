@@ -11,10 +11,9 @@
 #define WIFI_LOGIN "Radient_lab"
 #define WIFI_PASSWORD "TYU_!jqw"
 #define BUTTON_PIN_BITMASK 0x10 // HEX:2^4
-#ifdef TEST_MOTOR
-#define MOVE_OPEN_PIN 6
-#define MOVE_CLOSE_PIN 7
-#endif
+#define MOVE_OPEN_PIN 3
+#define MOVE_CLOSE_PIN 10
+
 
 #ifdef PS002
 RTC_DATA_ATTR int bootCount = 0;
@@ -25,10 +24,8 @@ uint32_t zeroPS002 = 896200;
 // 3426407;//411006;
 #endif
 
-#ifdef TEST_MOTOR
 unsigned long timer = 0;
 uint8_t direction;
-#endif
 
 void print_wakeup_reason()
 {
@@ -149,25 +146,21 @@ SKIP_WEB_UI_BUILD:
 
   sensor.sleepMode(false);
   ++bootCount;
-  pinMode(4,INPUT_PULLUP);
-  esp_deep_sleep_enable_gpio_wakeup(BUTTON_PIN_BITMASK, ESP_GPIO_WAKEUP_GPIO_LOW);
+  pinMode(4,INPUT_PULLDOWN);
+  esp_deep_sleep_enable_gpio_wakeup(BUTTON_PIN_BITMASK, ESP_GPIO_WAKEUP_GPIO_HIGH);
   Serial.println("Boot number: " + String(bootCount));
   print_wakeup_reason();
   delay(3000);
   if (bootCount<3)esp_deep_sleep_start();
 
 
-#ifdef TEST_MOTOR
-  buttonMove.setDebounceTime(100);
-  buttonMove.setCountMode(COUNT_RISING);
   pinMode(MOVE_OPEN_PIN, OUTPUT);
   pinMode(MOVE_CLOSE_PIN, OUTPUT);
-#endif
 
-  // #ifdef PS002
+
   // delay(1000);
   // zeroPS002Update();
-  // #endif
+
 }
 
 #ifdef PS002
@@ -188,20 +181,20 @@ float getPressurePS002()
 }
 #endif
 
-#ifdef TEST_MOTOR
+
 void Moving(bool action)
 {
   uint8_t state = 1;
   if (action)
   {
-    if (buttonMove.getCount() == 1)
-      direction = MOVE_OPEN_PIN;
-    else if (buttonMove.getCount() == 3)
-      direction = MOVE_CLOSE_PIN;
-    if (buttonMove.getCount() == 2)
-      state = 0;
-    if (buttonMove.getCount() >= 3)
-      buttonMove.resetCount();
+    // if (buttonMove.getCount() == 1)
+    //   direction = MOVE_OPEN_PIN;
+    // else if (buttonMove.getCount() == 3)
+    //   direction = MOVE_CLOSE_PIN;
+    // if (buttonMove.getCount() == 2)
+    //   state = 0;
+    // if (buttonMove.getCount() >= 3)
+    //   buttonMove.resetCount();
   }
   else
     direction = MOVE_CLOSE_PIN;
@@ -213,8 +206,6 @@ void Moving(bool action)
     timer = millis();
 }
 
-#endif
-
 void loop()
 {
   ArduinoOTA.handle();
@@ -224,11 +215,9 @@ void loop()
   getPressurePS002();
 #endif
 
-#ifdef TEST_MOTOR
-  buttonCheck();
   if (direction == MOVE_OPEN_PIN)
-    Serial.println("Pressure: " + (String)getPressure() + "Bar");
-  if (getPressure() < 1.50)
+    Serial.println("Pressure: " + (String)getPressurePS002() + "Bar");
+  if (getPressurePS002() < 1.50)
     Moving(0);
   if (millis() - timer >= 12500)
   {
@@ -236,5 +225,5 @@ void loop()
     digitalWrite(MOVE_CLOSE_PIN, LOW);
     timer = 0;
   }
-#endif
+
 }
