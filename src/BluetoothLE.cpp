@@ -8,9 +8,15 @@ NimBLEService *BluetoothLE::pValueService = NULL;
 
 NimBLECharacteristic *BluetoothLE::pPS002Characteristic = NULL;
 
-// NimBLECharacteristic *BluetoothLE::XGZCharacteristic = NULL;
+NimBLECharacteristic *BluetoothLE::pressureCharacteristic = NULL;
 
 NimBLECharacteristic *BluetoothLE::KCharacteristic = NULL;
+
+// void BluetoothLE::pressureCharacteristicCallbacks::onWrite(NimBLECharacteristic *pressureCharacteristic)
+// {
+//     String pressure = pressureCharacteristic->getValue();
+//     _bluetoothLECallback->pressureSettingsChanged(pressure);
+// }
 
 void BluetoothLE::init()
 {
@@ -22,15 +28,15 @@ void BluetoothLE::init()
         NIMBLE_PROPERTY::READ |
             NIMBLE_PROPERTY::NOTIFY);
 
-    // XGZCharacteristic = pValueService->createCharacteristic(
-    //     XGZ_CHARACTERISTIC_UUID,
-    //     NIMBLE_PROPERTY::READ |
-    //         NIMBLE_PROPERTY::NOTIFY);
-    
+    pressureCharacteristic = pValueService->createCharacteristic(
+        CONTROL_PRESSURE_UUID,
+        NIMBLE_PROPERTY::WRITE |
+            NIMBLE_PROPERTY::NOTIFY);
+
     KCharacteristic = pValueService->createCharacteristic(
         K_CHARACTERISTIC_UUID,
         NIMBLE_PROPERTY::READ |
-        NIMBLE_PROPERTY::NOTIFY);
+            NIMBLE_PROPERTY::NOTIFY);
 
     pValueService->start();
 
@@ -39,6 +45,7 @@ void BluetoothLE::init()
     pAdvertising->setAppearance(0x0180);
     pAdvertising->start();
     pPS002Characteristic->setValue("");
+    // pressureCharacteristic->setCallbacks(new pressureCharacteristicCallbacks());
 }
 
 void BluetoothLE::printPS002(String &val)
@@ -48,11 +55,9 @@ void BluetoothLE::printPS002(String &val)
     pPS002Characteristic->notify(true);
 }
 
-// void BluetoothLE::printXGZ(String &val)
+// void BluetoothLE::read(String &val)
 // {
-//     std::string str(val.c_str());
-//     XGZCharacteristic->setValue<std::string>(str);
-//     XGZCharacteristic->notify(true);
+//     pressureCharacteristic->onWrite(*pressureCharacteristic);
 // }
 
 void BluetoothLE::printK(String &val)

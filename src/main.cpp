@@ -5,23 +5,27 @@
 #include <GyverPortal.h>
 #include <BluetoothLE.h>
 
-// #define TEST_MOTOR
-// #define SLEEP_TEST
+#define SLEEP
 #define PS002
+#define WIFIUPDATE
 #define WIFI_LOGIN "Radient_lab"
 #define WIFI_PASSWORD "TYU_!jqw"
 #define BUTTON_PIN_BITMASK 0x10 // HEX:2^4
 #define MOVE_OPEN_PIN 3
 #define MOVE_CLOSE_PIN 10
-
+#define MOSFET_PIN 1
+#define VOLT_PIN 0
 
 #ifdef PS002
 RTC_DATA_ATTR int bootCount = 0;
-float K_PS002 = 64 / 8388608; //1,65в(1/2 опорного  напряжения)(32(коэффицент усиления)*2^24(бит))
-float kBar = 0.087472073;//0.0827337;
+float K_PS002 = 64 / 8388608; // 1,65в(1/2 опорного  напряжения)(32(коэффицент усиления)*2^24(бит))
+float kBar = 0.087472073;     // 0.0827337;
+
+float incomingPressureValue = 0.00;
 GyverHX711 sensor(5, 6, HX_GAIN32_B); // data, sck
+
 uint32_t zeroPS002 = 896200;
-// 3426407;//411006;
+
 #endif
 
 unsigned long timer = 0;
@@ -61,36 +65,24 @@ void print_wakeup_reason()
     break;
   }
 }
-
-
+#ifdef WIFIUPDATE
 bool wifiConnect = 1;
-
-// GyverPortal ui;
-
-// GPlog ps002Log("PS002");
+#endif
 
 const String NAME = "ECP32C3";
 
 BluetoothLE Bluetooth;
-//------------WebUI build------------
-// void build()
-// {
-//   GP.BUILD_BEGIN(2000);
-//   GP.THEME(GP_DARK);
-//   // GP.AREA_LOG(ps002Log, 5);
-//   GP.TITLE("v0.0.1");
-//   GP.BUILD_END();
-// }
+class ExportBluetoothLECallback : public BluetoothLECallback
+{
+public:
+  virtual void pressureSettingsChanged(String newValue) override
+  {
+    incomingPressureValue = newValue.toFloat();
+    Serial.println("Callback:" + (String)incomingPressureValue);
+  };
+};
 
-// void action()
-// {
-//   if (ui.update())
-//   {
-//     ui.updateLog(ps002Log);
-//   }
-// }
-
-//-----------------------------------
+ExportBluetoothLECallback Callback;
 
 void zeroPS002Update()
 {
@@ -103,6 +95,15 @@ void zeroPS002Update()
   // Bluetooth.printPS002("zeroPS002: " + (String)printZero);
 }
 
+void deepsleep()
+{
+#ifdef SLEEP
+  // delay(3000);
+  // if (bootCount < 3)
+  esp_deep_sleep_start();
+#endif
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -111,6 +112,7 @@ void setup()
   delay(500);
   Bluetooth.init();
 
+#ifdef WIFIUPDATE
   //-------connet to Wifi-------------
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_LOGIN, WIFI_PASSWORD);
@@ -130,57 +132,48 @@ void setup()
   }
   Serial.println("Wifi connected, IP address: ");
   Serial.println(WiFi.localIP());
-
-// ui.attachBuild(build);
-// ui.attach(action);
-// ui.start();
-
-// ps002Log.start(128);
-SKIP_WEB_UI_BUILD:
-  //--Enable OTA update--
   ArduinoOTA.begin();
-  // delay(300);
+SKIP_WEB_UI_BUILD:
+#endif
 
-  //-----------------------------------
-
-
+#ifdef SLEEP
   sensor.sleepMode(false);
   ++bootCount;
-  pinMode(4,INPUT_PULLDOWN);
+  pinMode(4, INPUT_PULLDOWN);
   esp_deep_sleep_enable_gpio_wakeup(BUTTON_PIN_BITMASK, ESP_GPIO_WAKEUP_GPIO_HIGH);
   Serial.println("Boot number: " + String(bootCount));
   print_wakeup_reason();
-  delay(3000);
-  if (bootCount<3)esp_deep_sleep_start();
-
-
+#endif
+  //-----------------------------------
   pinMode(MOVE_OPEN_PIN, OUTPUT);
   pinMode(MOVE_CLOSE_PIN, OUTPUT);
 
+  pinMode(MOSFET_PIN, OUTPUT);
+  pinMode(VOLT_PIN, INPUT);
 
   // delay(1000);
   // zeroPS002Update();
 
+  BluetoothLE::setCallback(&Callback);
+#ifdef SLEEP
+  deepsleep();
+#endif
 }
 
 #ifdef PS002
 float getPressurePS002()
 {
   int32_t reading = 0;
-  // for (uint32_t i = 0; i < 16; i++)
   reading = sensor.read() - zeroPS002;
   if (reading < 0)
     reading = 0;
-  Bluetooth.printPS002("ADC: " + (String)reading);
-  // reading /= 16;
-  float pressure = kBar *  (reading * K_PS002);// + b;
-  // float atm = (reading * K_PS002);// - 1.7;
+  BluetoothLE::printPS002("ADC: " + (String)reading);
+  float pressure = kBar * (reading * K_PS002);
   Bluetooth.printK("Bar:" + (String)pressure);
   delay(200);
   return pressure;
 }
 #endif
-
 
 void Moving(bool action)
 {
@@ -208,22 +201,21 @@ void Moving(bool action)
 
 void loop()
 {
-  ArduinoOTA.handle();
-  // ui.tick();
 
-#ifdef PS002
-  getPressurePS002();
-#endif
+  // ArduinoOTA.handle();
 
-  if (direction == MOVE_OPEN_PIN)
-    Serial.println("Pressure: " + (String)getPressurePS002() + "Bar");
-  if (getPressurePS002() < 1.50)
-    Moving(0);
-  if (millis() - timer >= 12500)
-  {
-    digitalWrite(MOVE_OPEN_PIN, LOW);
-    digitalWrite(MOVE_CLOSE_PIN, LOW);
-    timer = 0;
-  }
+  // #ifdef PS002
+  //   getPressurePS002();
+  // #endif
 
+  //   if (direction == MOVE_OPEN_PIN)
+  //     Serial.println("Pressure: " + (String)getPressurePS002() + "Bar");
+  //   if (getPressurePS002() < 1.50)
+  //     Moving(0);
+  //   if (millis() - timer >= 12500)
+  //   {
+  //     digitalWrite(MOVE_OPEN_PIN, LOW);
+  //     digitalWrite(MOVE_CLOSE_PIN, LOW);
+  //     timer = 0;
+  //   }
 }
