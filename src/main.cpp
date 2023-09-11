@@ -7,30 +7,31 @@
 
 #define SLEEP
 #define PS002
-#define WIFIUPDATE
+// #define WIFIUPDATE
+#ifdef WIFIUPDATE
 #define WIFI_LOGIN "Radient_lab"
 #define WIFI_PASSWORD "TYU_!jqw"
+#endif
 #define BUTTON_PIN_BITMASK 0x10 // HEX:2^4
 #define MOVE_OPEN_PIN 3
 #define MOVE_CLOSE_PIN 10
-#define MOSFET_PIN 1
 #define VOLT_PIN 0
+#define VOLTAGE_DIVIDER 1
 
 #ifdef PS002
 RTC_DATA_ATTR int bootCount = 0;
-float K_PS002 = 64 / 8388608; // 1,65в(1/2 опорного  напряжения)(32(коэффицент усиления)*2^24(бит))
+float K_PS002 = 64 / 8388608; // 1,65в(0.5 опорного  напряжения)(32(коэффицент усиления)*2^24(бит))
 float kBar = 0.087472073;     // 0.0827337;
 
 float incomingPressureValue = 0.00;
+
 GyverHX711 sensor(5, 6, HX_GAIN32_B); // data, sck
 
 uint32_t zeroPS002 = 896200;
-
 #endif
 
 bool act = false;
 unsigned long timer = 0;
-
 
 void print_wakeup_reason()
 {
@@ -72,7 +73,7 @@ bool wifiConnect = 1;
 
 const String NAME = "ECP32C3";
 
-BluetoothLE Bluetooth;
+// BluetoothLE Bluetooth;
 class ExportBluetoothLECallback : public BluetoothLECallback
 {
 public:
@@ -88,12 +89,11 @@ ExportBluetoothLECallback Callback;
 void zeroPS002Update()
 {
   int printZero = 0;
-  // zeroPS002 = 0;
   for (int i = 0; i < 1000; i++)
     printZero += sensor.read();
   printZero /= 1000;
   Serial.println("zeroPS002: " + (String)printZero);
-  // Bluetooth.printPS002("zeroPS002: " + (String)printZero);
+  // BluetoothLE::printPS002("zeroPS002: " + (String)printZero);
 }
 
 void deepsleep()
@@ -105,13 +105,25 @@ void deepsleep()
 #endif
 }
 
+float getVolts()
+{
+  digitalWrite(VOLTAGE_DIVIDER, HIGH);
+  uint16_t sensorValue = analogRead(VOLT_PIN);
+  float voltage = sensorValue * (3.3 / 4095.0);
+  voltage /= 1.16;
+  voltage *= 2;
+  Serial.println((String)voltage);
+  digitalWrite(VOLTAGE_DIVIDER, LOW);
+  return voltage;
+}
+
 void setup()
 {
   Serial.begin(115200);
   delay(500);
   Serial.println("Serial initialised");
   delay(500);
-  Bluetooth.init();
+  BluetoothLE::init();
 
 #ifdef WIFIUPDATE
   //-------connet to Wifi-------------
@@ -149,7 +161,7 @@ SKIP_WEB_UI_BUILD:
   pinMode(MOVE_OPEN_PIN, OUTPUT);
   pinMode(MOVE_CLOSE_PIN, OUTPUT);
 
-  pinMode(MOSFET_PIN, OUTPUT);
+  pinMode(VOLTAGE_DIVIDER, OUTPUT);
   pinMode(VOLT_PIN, INPUT);
 
   // delay(1000);
@@ -159,6 +171,7 @@ SKIP_WEB_UI_BUILD:
 #ifdef SLEEP
   // deepsleep();
 #endif
+  getVolts();
 }
 
 #ifdef PS002
@@ -170,7 +183,7 @@ float getPressurePS002()
     reading = 0;
   BluetoothLE::printPS002("ADC: " + (String)reading);
   float pressure = kBar * (reading * K_PS002);
-  Bluetooth.printK("Bar:" + (String)pressure);
+  BluetoothLE::printK("Bar:" + (String)pressure);
   delay(200);
   return pressure;
 }
@@ -183,23 +196,27 @@ void Moving(bool action)
   (action) ? direction = MOVE_OPEN_PIN : direction = MOVE_CLOSE_PIN;
   digitalWrite(direction, state);
   (state == 0) ? timer = 0 : timer = millis();
-  act=true;
+  act = true;
 }
 
 void loop()
 {
+#ifdef WIFIUPDATE
   ArduinoOTA.handle();
-  if (incomingPressureValue!=0)
+#endif
+  if (incomingPressureValue != 0)
   {
-  if (getPressurePS002()>incomingPressureValue) Moving(1);
-  if (getPressurePS002()<=incomingPressureValue) Moving(0);
-  } 
-  
+    if (getPressurePS002() > incomingPressureValue)
+      Moving(1);
+    if (getPressurePS002() <= incomingPressureValue)
+      Moving(0);
+  }
+
   // #ifdef PS002
   //   getPressurePS002();
   // #endif
-    
-  if ((millis() - timer >= 12500)&&(act))
+
+  if ((millis() - timer >= 12500) && (act))
   {
     digitalWrite(MOVE_OPEN_PIN, LOW);
     digitalWrite(MOVE_CLOSE_PIN, LOW);
