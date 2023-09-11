@@ -20,18 +20,22 @@
 class BluetoothLECallback
 {
 public:
-    virtual void pressureSettingsChanged(String){};
+    virtual void pressureSettingsChanged(String newValue){};
 };
 
+// class ExportBluetoothLECallback : public BluetoothLECallback
+// {
+// public:
+//     String pressureSettingsChanged(String);
+// }; 
 class BluetoothLE
 {
 public:
     static void init();
     static void printPS002(String &val);
-    // static void printXGZ(String &val);
     static void printK(String &val);
     static void read(String &val);
-    String pressureSettingsChanged(String &getPres);
+    static void setCallback(BluetoothLECallback* callback);
 
 private:
     class ServerCallbacks : public NimBLEServerCallbacks

@@ -12,11 +12,14 @@ NimBLECharacteristic *BluetoothLE::pressureCharacteristic = NULL;
 
 NimBLECharacteristic *BluetoothLE::KCharacteristic = NULL;
 
-// void BluetoothLE::pressureCharacteristicCallbacks::onWrite(NimBLECharacteristic *pressureCharacteristic)
-// {
-//     String pressure = pressureCharacteristic->getValue();
-//     _bluetoothLECallback->pressureSettingsChanged(pressure);
-// }
+BluetoothLECallback *BluetoothLE::_bluetoothLECallback = NULL;
+
+void BluetoothLE::pressureCharacteristicCallbacks::onWrite(NimBLECharacteristic *pressureCharacteristic)
+{
+    String pressure = pressureCharacteristic->getValue();//<float>();
+    if (_bluetoothLECallback != NULL)
+        _bluetoothLECallback->pressureSettingsChanged(pressure);
+}
 
 void BluetoothLE::init()
 {
@@ -45,7 +48,7 @@ void BluetoothLE::init()
     pAdvertising->setAppearance(0x0180);
     pAdvertising->start();
     pPS002Characteristic->setValue("");
-    // pressureCharacteristic->setCallbacks(new pressureCharacteristicCallbacks());
+    pressureCharacteristic->setCallbacks(new pressureCharacteristicCallbacks());
 }
 
 void BluetoothLE::printPS002(String &val)
@@ -55,9 +58,13 @@ void BluetoothLE::printPS002(String &val)
     pPS002Characteristic->notify(true);
 }
 
+void BluetoothLE::setCallback(BluetoothLECallback *callback)
+{
+    _bluetoothLECallback = callback;
+}
 // void BluetoothLE::read(String &val)
 // {
-//     pressureCharacteristic->onWrite(*pressureCharacteristic);
+//
 // }
 
 void BluetoothLE::printK(String &val)
