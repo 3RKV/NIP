@@ -204,13 +204,18 @@ void loop()
 #ifdef WIFIUPDATE
   ArduinoOTA.handle();
 #endif
-  if (incomingPressureValue != 0)
+if (getVolts() >= 3.50)
+{
+   if (incomingPressureValue != 0)
   {
     if (getPressurePS002() > incomingPressureValue)
       Moving(1);
     if (getPressurePS002() <= incomingPressureValue)
       Moving(0);
   }
+}
+else Moving(0);
+
 
   // #ifdef PS002
   //   getPressurePS002();
