@@ -28,8 +28,9 @@ uint32_t zeroPS002 = 896200;
 
 #endif
 
+bool act = false;
 unsigned long timer = 0;
-uint8_t direction;
+
 
 void print_wakeup_reason()
 {
@@ -156,7 +157,7 @@ SKIP_WEB_UI_BUILD:
 
   BluetoothLE::setCallback(&Callback);
 #ifdef SLEEP
-  deepsleep();
+  // deepsleep();
 #endif
 }
 
@@ -177,45 +178,33 @@ float getPressurePS002()
 
 void Moving(bool action)
 {
+  uint8_t direction;
   uint8_t state = 1;
-  if (action)
-  {
-    // if (buttonMove.getCount() == 1)
-    //   direction = MOVE_OPEN_PIN;
-    // else if (buttonMove.getCount() == 3)
-    //   direction = MOVE_CLOSE_PIN;
-    // if (buttonMove.getCount() == 2)
-    //   state = 0;
-    // if (buttonMove.getCount() >= 3)
-    //   buttonMove.resetCount();
-  }
-  else
-    direction = MOVE_CLOSE_PIN;
-
+  (action) ? direction = MOVE_OPEN_PIN : direction = MOVE_CLOSE_PIN;
   digitalWrite(direction, state);
-  if (state == 0)
-    timer = 0;
-  else
-    timer = millis();
+  (state == 0) ? timer = 0 : timer = millis();
+  act=true;
 }
 
 void loop()
 {
-
-  // ArduinoOTA.handle();
-
+  ArduinoOTA.handle();
+  if (incomingPressureValue!=0)
+  {
+  if (getPressurePS002()>incomingPressureValue) Moving(1);
+  if (getPressurePS002()<=incomingPressureValue) Moving(0);
+  } 
+  
   // #ifdef PS002
   //   getPressurePS002();
   // #endif
-
-  //   if (direction == MOVE_OPEN_PIN)
-  //     Serial.println("Pressure: " + (String)getPressurePS002() + "Bar");
-  //   if (getPressurePS002() < 1.50)
-  //     Moving(0);
-  //   if (millis() - timer >= 12500)
-  //   {
-  //     digitalWrite(MOVE_OPEN_PIN, LOW);
-  //     digitalWrite(MOVE_CLOSE_PIN, LOW);
-  //     timer = 0;
-  //   }
+    
+  if ((millis() - timer >= 12500)&&(act))
+  {
+    digitalWrite(MOVE_OPEN_PIN, LOW);
+    digitalWrite(MOVE_CLOSE_PIN, LOW);
+    timer = 0;
+    act = false;
+    incomingPressureValue = 0;
+  }
 }
