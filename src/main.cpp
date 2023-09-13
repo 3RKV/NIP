@@ -20,17 +20,17 @@
 
 #ifdef PS002
 RTC_DATA_ATTR int bootCount = 0;
-float K_PS002 = 64 / 8388608; // 1,65в(0.5 опорного  напряжения)(32(коэффицент усиления)*2^24(бит))
-float kBar = 0.087472073;     // 0.0827337;
+float K_PS002 = 0.00000762939453125; // 64.00 / 8388608.00; // 1,65в(0.5 опорного  напряжения)(32(коэффицент усиления)*2^24(бит))
+float kBar = 0.087472073;            // 0.0827337;
 
 float incomingPressureValue = 0.00;
 
 GyverHX711 sensor(5, 6, HX_GAIN32_B); // data, sck
 
-uint32_t zeroPS002 = 896200;
+uint32_t zeroPS002 = 1212396; // 896200;
 #endif
 
-bool act = false;
+uint8_t act = 0;
 unsigned long timer = 0;
 
 void print_wakeup_reason()
@@ -114,6 +114,7 @@ float getVolts()
   voltage *= 2;
   Serial.println((String)voltage);
   digitalWrite(VOLTAGE_DIVIDER, LOW);
+  BluetoothLE::printPS002("Bat: " + (String)voltage + "V");
   return voltage;
 }
 
@@ -179,9 +180,9 @@ float getPressurePS002()
 {
   int32_t reading = 0;
   reading = sensor.read() - zeroPS002;
-  if (reading < 0)
-    reading = 0;
-  BluetoothLE::printPS002("ADC: " + (String)reading);
+  // BluetoothLE::printK("ADC:" + (String)reading);
+  // if (reading < 0)
+  //   reading = 0;
   float pressure = kBar * (reading * K_PS002);
   BluetoothLE::printK("Bar:" + (String)pressure);
   delay(200);
@@ -191,12 +192,15 @@ float getPressurePS002()
 
 void Moving(bool action)
 {
+  digitalWrite(MOVE_OPEN_PIN, LOW);
+  digitalWrite(MOVE_CLOSE_PIN, LOW);
   uint8_t direction;
   uint8_t state = 1;
   (action) ? direction = MOVE_OPEN_PIN : direction = MOVE_CLOSE_PIN;
+  (action) ? act = 1 : act = 2;
   digitalWrite(direction, state);
-  (state == 0) ? timer = 0 : timer = millis();
-  act = true;
+  // (state == 0) ? timer = 0 : 
+  timer = millis();
 }
 
 void loop()
@@ -204,30 +208,38 @@ void loop()
 #ifdef WIFIUPDATE
   ArduinoOTA.handle();
 #endif
-
+  getPressurePS002();
   if (incomingPressureValue != 0)
   {
     if (getVolts() >= 3.50)
     {
-      if (getPressurePS002() > incomingPressureValue)
+      if ((getPressurePS002() > incomingPressureValue) && (act == 0))
         Moving(1);
-      if ((getPressurePS002() <= incomingPressureValue)&&(act))
+      else if ((getPressurePS002() <= incomingPressureValue) && (act == 1))
         Moving(0);
     }
-    else if (act)
+    else if (act == 1)
+    {
+      String LowEnergy = "Bat:LOW ENERGY!";
+      BluetoothLE::printPS002(LowEnergy);
       Moving(0);
+      // deepsleep();
+    }
+  }
+  else if (act == 1)
+    Moving(0);
+
+  if ((millis() - timer >= 12500) && (act != 0))
+  {
+    digitalWrite(MOVE_OPEN_PIN, LOW);
+    digitalWrite(MOVE_CLOSE_PIN, LOW);
+    timer = 0;
+    if (act == 2)
+      act = 0;
+    incomingPressureValue = 0;
   }
 
   // #ifdef PS002
   //   getPressurePS002();
   // #endif
-
-  if ((millis() - timer >= 12500) && (act))
-  {
-    digitalWrite(MOVE_OPEN_PIN, LOW);
-    digitalWrite(MOVE_CLOSE_PIN, LOW);
-    timer = 0;
-    act = false;
-    incomingPressureValue = 0;
-  }
 }

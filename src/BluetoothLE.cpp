@@ -62,10 +62,6 @@ void BluetoothLE::setCallback(BluetoothLECallback *callback)
 {
     _bluetoothLECallback = callback;
 }
-// void BluetoothLE::read(String &val)
-// {
-//
-// }
 
 void BluetoothLE::printK(String &val)
 {

@@ -34,7 +34,6 @@ public:
     static void init();
     static void printPS002(String &val);
     static void printK(String &val);
-    static void read(String &val);
     static void setCallback(BluetoothLECallback* callback);
 
 private:
