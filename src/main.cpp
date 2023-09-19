@@ -199,7 +199,7 @@ void Moving(bool action)
   (action) ? direction = MOVE_OPEN_PIN : direction = MOVE_CLOSE_PIN;
   (action) ? act = 1 : act = 2;
   digitalWrite(direction, state);
-  // (state == 0) ? timer = 0 : 
+  // (state == 0) ? timer = 0 :
   timer = millis();
 }
 
@@ -235,8 +235,10 @@ void loop()
     digitalWrite(MOVE_CLOSE_PIN, LOW);
     timer = 0;
     if (act == 2)
+    {
       act = 0;
-    incomingPressureValue = 0;
+      incomingPressureValue = 0;
+    }
   }
 
   // #ifdef PS002
