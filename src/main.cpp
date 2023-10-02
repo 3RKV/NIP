@@ -1,11 +1,12 @@
+#include <Arduino.h>
 #include <ezButton.h>
-#include <GyverHX711.h>
+#include "HX710B.h"
 #include <ArduinoOTA.h>
 #include <WiFiUdp.h>
 #include <GyverPortal.h>
 #include <BluetoothLE.h>
 
-#define SLEEP
+// #define SLEEP
 #define PS002
 // #define WIFIUPDATE
 #ifdef WIFIUPDATE
@@ -17,17 +18,14 @@
 #define MOVE_CLOSE_PIN 10
 #define VOLT_PIN 0
 #define VOLTAGE_DIVIDER 1
+#define HX710_DOUT 5
+#define HX710_SCLK 6
 
 #ifdef PS002
 RTC_DATA_ATTR int bootCount = 0;
-float K_PS002 = 0.00000762939453125; // 64.00 / 8388608.00; // 1,65в(0.5 опорного  напряжения)(32(коэффицент усиления)*2^24(бит))
-float kBar = 0.087472073;            // 0.0827337;
-
 float incomingPressureValue = 0.00;
 
-GyverHX711 sensor(5, 6, HX_GAIN32_B); // data, sck
-
-uint32_t zeroPS002 = 1212396; // 896200;
+HX710B pressure_sensor;
 #endif
 
 uint8_t act = 0;
@@ -88,12 +86,13 @@ ExportBluetoothLECallback Callback;
 
 void zeroPS002Update()
 {
-  int printZero = 0;
-  for (int i = 0; i < 1000; i++)
-    printZero += sensor.read();
-  printZero /= 1000;
-  Serial.println("zeroPS002: " + (String)printZero);
-  // BluetoothLE::printPS002("zeroPS002: " + (String)printZero);
+  long oldOffset = pressure_sensor.get_offset();
+  long offset = pressure_sensor.read_average(1) + oldOffset;
+  Serial.printf("Start value: %ld \n", offset);
+  delay(500);
+  // pressure_sensor.set_offset(offset);
+  Serial.printf("Offset: %ld\n", pressure_sensor.get_offset());
+  delay(500);
 }
 
 void deepsleep()
@@ -125,6 +124,9 @@ void setup()
   Serial.println("Serial initialised");
   delay(500);
   BluetoothLE::init();
+
+  pressure_sensor.begin(HX710_DOUT, HX710_SCLK);
+  pressure_sensor.set_offset(724307);
 
 #ifdef WIFIUPDATE
   //-------connet to Wifi-------------
@@ -166,26 +168,31 @@ SKIP_WEB_UI_BUILD:
   pinMode(VOLT_PIN, INPUT);
 
   // delay(1000);
-  // zeroPS002Update();
+  zeroPS002Update();
 
   BluetoothLE::setCallback(&Callback);
 #ifdef SLEEP
   // deepsleep();
 #endif
-  getVolts();
+  // getVolts();
 }
 
 #ifdef PS002
+
 float getPressurePS002()
 {
-  int32_t reading = 0;
-  reading = sensor.read() - zeroPS002;
-  // BluetoothLE::printK("ADC:" + (String)reading);
-  // if (reading < 0)
-  //   reading = 0;
-  float pressure = kBar * (reading * K_PS002);
-  BluetoothLE::printK("Bar:" + (String)pressure);
-  delay(200);
+  long int pressure = pressure_sensor.read_average(1);
+  // if (pressure < 0)
+  //   pressure = 0;
+
+  // float kPa = pressure_sensor.kPascal();
+  // float kPa =0.00000762939453125 * pressure_sensor.read_average(1) * 0.087472073;
+    float Bar =  0.0000152587890625*pressure_sensor.read_average(1)*0.087472073;
+  // if (kPa < 0)
+  //   kPa = 0;
+  Serial.printf("Pressure: %d \t Bar: %03.2f\n", pressure, Bar);
+  BluetoothLE::printK("Bar: " + (String)Bar);
+  BluetoothLE::printPS002("ADC: " +  (String)pressure);
   return pressure;
 }
 #endif
@@ -209,7 +216,8 @@ void loop()
   ArduinoOTA.handle();
 #endif
   getPressurePS002();
-  if (incomingPressureValue != 0)
+
+  /* if (incomingPressureValue != 0)
   {
     if (getVolts() >= 3.50)
     {
@@ -239,7 +247,7 @@ void loop()
       act = 0;
       incomingPressureValue = 0;
     }
-  }
+  } */
 
   // #ifdef PS002
   //   getPressurePS002();
