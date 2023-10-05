@@ -19,10 +19,10 @@
 #define PRESSURE_PIN 5
 #ifdef PS002
 RTC_DATA_ATTR int bootCount = 0;
-float kPS002Bar = 0.0030769;//0.0018;//0.00170940170940; // 3.3в опорного напряжения / 4095 значения 12ти битного ADC
+float kPS002Bar = 0.0030769;             // Коэффицент линейного уравнения
 float kPS002Volts = 0.000805860805860;   // 4095 значений 12ти битного ADC / 700кПа максимального значения датчика
-uint8_t b = 0.053719;
-uint32_t zeroPS002 = 121;          // Программный ноль датчика
+uint8_t b = 0.053719;                     
+uint32_t zeroPS002 = 121;                // Программный ноль датчика
 
 float incomingPressureValue = 0.00;
 #endif
