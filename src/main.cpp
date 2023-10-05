@@ -1,5 +1,4 @@
 #include <ezButton.h>
-#include <GyverHX711.h>
 #include <ArduinoOTA.h>
 #include <WiFiUdp.h>
 #include <GyverPortal.h>
@@ -17,17 +16,15 @@
 #define MOVE_CLOSE_PIN 10
 #define VOLT_PIN 0
 #define VOLTAGE_DIVIDER 1
-
+#define PRESSURE_PIN 5
 #ifdef PS002
 RTC_DATA_ATTR int bootCount = 0;
-float K_PS002 = 0.00000762939453125; // 64.00 / 8388608.00; // 1,65в(0.5 опорного  напряжения)(32(коэффицент усиления)*2^24(бит))
-float kBar = 0.087472073;            // 0.0827337;
+float kPS002Bar = 0.0030769;//0.0018;//0.00170940170940; // 3.3в опорного напряжения / 4095 значения 12ти битного ADC
+float kPS002Volts = 0.000805860805860;   // 4095 значений 12ти битного ADC / 700кПа максимального значения датчика
+uint8_t b = 0.053719;
+uint32_t zeroPS002 = 121;          // Программный ноль датчика
 
 float incomingPressureValue = 0.00;
-
-GyverHX711 sensor(5, 6, HX_GAIN32_B); // data, sck
-
-uint32_t zeroPS002 = 1212396; // 896200;
 #endif
 
 uint8_t act = 0;
@@ -90,7 +87,7 @@ void zeroPS002Update()
 {
   int printZero = 0;
   for (int i = 0; i < 1000; i++)
-    printZero += sensor.read();
+    printZero += analogRead(PRESSURE_PIN);
   printZero /= 1000;
   Serial.println("zeroPS002: " + (String)printZero);
   // BluetoothLE::printPS002("zeroPS002: " + (String)printZero);
@@ -151,7 +148,6 @@ SKIP_WEB_UI_BUILD:
 #endif
 
 #ifdef SLEEP
-  sensor.sleepMode(false);
   ++bootCount;
   pinMode(4, INPUT_PULLDOWN);
   esp_deep_sleep_enable_gpio_wakeup(BUTTON_PIN_BITMASK, ESP_GPIO_WAKEUP_GPIO_HIGH);
@@ -165,8 +161,9 @@ SKIP_WEB_UI_BUILD:
   pinMode(VOLTAGE_DIVIDER, OUTPUT);
   pinMode(VOLT_PIN, INPUT);
 
+  pinMode(PRESSURE_PIN,INPUT);
   // delay(1000);
-  // zeroPS002Update();
+  zeroPS002Update();
 
   BluetoothLE::setCallback(&Callback);
 #ifdef SLEEP
@@ -179,12 +176,16 @@ SKIP_WEB_UI_BUILD:
 float getPressurePS002()
 {
   int32_t reading = 0;
-  reading = sensor.read() - zeroPS002;
-  // BluetoothLE::printK("ADC:" + (String)reading);
-  // if (reading < 0)
-  //   reading = 0;
-  float pressure = kBar * (reading * K_PS002);
+  for (uint8_t i =0; i<200; reading += analogRead(PRESSURE_PIN), i++)
+  reading/=200;
+  if (reading < zeroPS002)
+    reading = zeroPS002;
+  float pressure = ((reading - zeroPS002) * kPS002Bar);
+  pressure += b;
   BluetoothLE::printK("Bar:" + (String)pressure);
+   BluetoothLE::printPS002("ADC-ZERO:" + (String)(reading-zeroPS002));
+  // BluetoothLE::printPS002("ADC: " + (String)reading);
+  Serial.printf("ADC: %d;\t ADC-Zero: %d;\t Bar: %4.1f \n", reading,(reading-zeroPS002), pressure);
   delay(200);
   return pressure;
 }
