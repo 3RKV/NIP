@@ -209,7 +209,16 @@ void loop()
   ArduinoOTA.handle();
 #endif
   getPressurePS002();
-  if (incomingPressureValue != 0)
+  if (incomingPressureValue == 0)
+  {
+    digitalWrite(MOVE_OPEN_PIN, LOW);
+    digitalWrite(MOVE_CLOSE_PIN, LOW);
+  }
+  if (incomingPressureValue == 1)
+    Moving(0);
+  if (incomingPressureValue == 2)
+    Moving(1);
+  /* if (incomingPressureValue != 0)
   {
     if (getVolts() >= 3.50)
     {
@@ -239,7 +248,7 @@ void loop()
       act = 0;
       incomingPressureValue = 0;
     }
-  }
+  } */
 
   // #ifdef PS002
   //   getPressurePS002();
