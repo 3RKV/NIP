@@ -3,11 +3,13 @@
 #include <WiFiUdp.h>
 #include <GyverPortal.h>
 #include <BluetoothLE.h>
+#include <Preferences.h>
 #include <CS1237.h>
 
 #define SLEEP
 #define PS002
 // #define WIFIUPDATE
+// #define FIRST_BOOT
 #ifdef WIFIUPDATE
 #define WIFI_LOGIN "Radient_lab"
 #define WIFI_PASSWORD "TYU_!jqw"
@@ -21,11 +23,11 @@
 #define DOUT 5
 
 #ifdef PS002
-RTC_DATA_ATTR int bootCount = 0;
-float kPS002Bar = 0.0000094428637;           // Коэффицент линейного уравнения
+// RTC_DATA_ATTR int bootCount = 0;
+float kPS002Bar = 0.0000094428637;     // Коэффицент линейного уравнения
 float kPS002Volts = 0.000000196695351; // 0.04172325;// 4095 значений 12ти битного ADC / 700кПа максимального значения датчика
 uint8_t b = 0.0693713;
-//P(v) = 48.3355809*x-0.0272062
+// P(v) = 48.3355809*x-0.0272062
 int32_t zeroPS002 = 5900;
 // 97; // 81; // Программный ноль датчика
 
@@ -38,6 +40,7 @@ bool readADC_f = false;
 float incomingPressureValue = 0.00;
 #endif
 
+Preferences preferences;
 uint8_t act = 0;
 unsigned long timer = 0;
 
@@ -145,7 +148,6 @@ void setup()
   delay(500);
 
   BluetoothLE::init();
-
 #ifdef WIFIUPDATE
   //-------connet to Wifi-------------
   WiFi.mode(WIFI_STA);
@@ -171,16 +173,37 @@ SKIP_WEB_UI_BUILD:
 #endif
 
 #ifdef SLEEP
+  preferences.begin("bootCounter", false);
+#ifdef FIRST_BOOT
+  uint8_t bootCount = 0;
+#endif
+#ifndef FIRST_BOOT
+  uint8_t bootCount = preferences.getUInt("counter", 0);
   ++bootCount;
-  pinMode(4, INPUT_PULLDOWN);
-  if (bootCount < 2)
-    esp_deep_sleep_enable_gpio_wakeup(GPIO_NUM_4, ESP_GPIO_WAKEUP_GPIO_HIGH);
-  else if (bootCount >= 2)
-  {
-    esp_sleep_enable_timer_wakeup(120000000);
-  }
+#endif
   Serial.println("Boot number: " + String(bootCount));
   Serial.println(print_wakeup_reason());
+  preferences.putUInt("counter", bootCount);
+  preferences.end();
+
+  if (bootCount < 2)
+  {
+    Serial.println("WakeUP configure GPIO");
+    esp_deep_sleep_enable_gpio_wakeup(BUTTON_PIN_BITMASK, ESP_GPIO_WAKEUP_GPIO_HIGH); // GPIO_NUM_4
+    esp_deep_sleep_start();
+  }
+  else if (bootCount == 2)
+  {
+    Serial.println("ESP32 reset");
+    ESP.restart();
+  }
+  else if (bootCount >= 3)
+  {
+    Serial.println("WakeUP configure TIMER");
+    esp_sleep_enable_timer_wakeup(120000000);
+    esp_deep_sleep_start();
+  }
+
 #endif
   //-----------------------------------
   pinMode(MOVE_OPEN_PIN, OUTPUT);
@@ -188,11 +211,11 @@ SKIP_WEB_UI_BUILD:
 
   pinMode(VOLTAGE_DIVIDER, OUTPUT);
   pinMode(VOLT_PIN, INPUT);
+
   if (ADC.configure(PGA_2, SPEED_1280, CHANNEL_A))
     Serial.println("success");
   else
     Serial.println("failed");
-  // gpio_install_isr_service( ESP_INTR_FLAG_SHARED);
 
   // ADC.end_reading();
 
@@ -205,7 +228,7 @@ SKIP_WEB_UI_BUILD:
   // delay(1000);
   // zeroPS002Update();
 #ifdef SLEEP
-// Serial.println("Sleep");
+// // Serial.println("Sleep");
 // esp_deep_sleep_start();
 #endif
   Serial.println("Initialise complete");
@@ -224,7 +247,7 @@ float getPressurePS002()
   int32_t printZero = reading;
   if (reading < zeroPS002)
     reading = zeroPS002;
-  float pressure = ((reading - zeroPS002) * kPS002Bar)-b;
+  float pressure = ((reading - zeroPS002) * kPS002Bar) - b;
   // pressure += b;
   BluetoothLE::printK("Psi:" + (String)pressure);
   // BluetoothLE::printPS002("ADC-ZERO:" + (String)(reading - zeroPS002));
@@ -253,63 +276,63 @@ void loop()
   // getPressurePS002();
   // if (bootCount < 2) esp_deep_sleep_start();
 
-  /*   String msg = "";
-    if (!powerOnTrigger_f)
+  /* String msg = "";
+  if (!powerOnTrigger_f)
+  {
+    if (BluetoothLE::getStatusConnection())
     {
-      if (BluetoothLE::getStatusConnection())
-      {
-        Serial.println("Connected");
-        BluetoothLE::printStatus("Connected");
-        powerOnTrigger_f = true;
-      }
+      Serial.println("Connected");
+      BluetoothLE::printStatus("Connected");
+      powerOnTrigger_f = true;
+    }
+  }
+  else
+  {
+    if (getVolts() <= 3.40)
+    {
+      Serial.printf("Bat:%4.1fV \n", getVolts());
+      BluetoothLE::printStatus("Boot number: " + String(bootCount));
+      BluetoothLE::printPS002("Wakeup reason:" + print_wakeup_reason());
+      BluetoothLE::printBat("Bat: " + (String)getVolts() + "V");
+      BluetoothLE::printStatus("LOW ENERGY!");
+      Moving(0);
+      esp_deep_sleep_start();
     }
     else
     {
-      if (getVolts() <= 3.40)
+      if (act == 0)
       {
         Serial.printf("Bat:%4.1fV \n", getVolts());
-        BluetoothLE::printStatus("Boot number: " + String(bootCount));
+        BluetoothLE::printK("Boot number: " + String(bootCount));
         BluetoothLE::printPS002("Wakeup reason:" + print_wakeup_reason());
+        BluetoothLE::printStatus("Motor open");
+        Moving(1);
+        Serial.printf("Bat:%4.1fV \n", getVolts());
         BluetoothLE::printBat("Bat: " + (String)getVolts() + "V");
-        BluetoothLE::printStatus("LOW ENERGY!");
-        Moving(0);
-        esp_deep_sleep_start();
       }
-      else
+      if (millis() - timer >= 12500)
       {
-        if (act == 0)
+        digitalWrite(MOVE_OPEN_PIN, LOW);
+        digitalWrite(MOVE_CLOSE_PIN, LOW);
+        timer = 0;
+        if (act == 1)
         {
-          Serial.printf("Bat:%4.1fV \n", getVolts());
-          BluetoothLE::printK("Boot number: " + String(bootCount));
-          BluetoothLE::printPS002("Wakeup reason:" + print_wakeup_reason());
-          BluetoothLE::printStatus("Motor open");
-          Moving(1);
+          BluetoothLE::printStatus("Motor closed");
+          Moving(0);
           Serial.printf("Bat:%4.1fV \n", getVolts());
           BluetoothLE::printBat("Bat: " + (String)getVolts() + "V");
         }
-        if (millis() - timer >= 12500)
+        else if (act == 2)
         {
-          digitalWrite(MOVE_OPEN_PIN, LOW);
-          digitalWrite(MOVE_CLOSE_PIN, LOW);
-          timer = 0;
-          if (act == 1)
-          {
-            BluetoothLE::printStatus("Motor closed");
-            Moving(0);
-            Serial.printf("Bat:%4.1fV \n", getVolts());
-            BluetoothLE::printBat("Bat: " + (String)getVolts() + "V");
-          }
-          else if (act == 2)
-          {
-            Serial.printf("Bat:%4.1fV \n", getVolts());
-            act = 3;
-            Serial.println("Deepsleep");
-            esp_deep_sleep_start();
-          }
+          Serial.printf("Bat:%4.1fV \n", getVolts());
+          act = 3;
+          Serial.println("Deepsleep");
+          esp_deep_sleep_start();
         }
       }
-      getPressurePS002();
-    } */
+    }
+    getPressurePS002();
+  } */
 #ifdef WIFIUPDATE
   ArduinoOTA.handle();
 #endif
@@ -359,6 +382,7 @@ void loop()
         incomingPressureValue = 0;
       }
     } */
+
   getPressurePS002();
   if (incomingPressureValue == 2)
   {
