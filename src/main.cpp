@@ -1,17 +1,20 @@
 #include <ezButton.h>
 #include <ArduinoOTA.h>
+#include <DNSServer.h>
+#include <WebServer.h>
 #include <WiFiUdp.h>
-#include <GyverPortal.h>
+// #include <GyverPortal.h>
 #include <BluetoothLE.h>
 #include <Preferences.h>
 #include <CS1237.h>
 
 #define SLEEP
-#define PS002
-// #define WIFIUPDATE
+// #define PS002
+#define WIFIUPDATE
+#define BLE
 // #define FIRST_BOOT
 #ifdef WIFIUPDATE
-#define WIFI_LOGIN "Radient_lab"
+#define WIFI_LOGIN "Radient"
 #define WIFI_PASSWORD "TYU_!jqw"
 #endif
 #define BUTTON_PIN_BITMASK 0x10 // HEX:2^4
@@ -22,25 +25,27 @@
 #define SCK 6
 #define DOUT 5
 
-#ifdef PS002
-// RTC_DATA_ATTR int bootCount = 0;
+// #if wifiUnable == 0
+// #pragma message "kek"
+#define PS002
+// #endif
+
+// #ifdef PS002
+
+RTC_DATA_ATTR int bootCount = 0;
 float kPS002Bar = 0.0000094428637;     // Коэффицент линейного уравнения
 float kPS002Volts = 0.000000196695351; // 0.04172325;// 4095 значений 12ти битного ADC / 700кПа максимального значения датчика
-uint8_t b = 0.0693713;
-// P(v) = 48.3355809*x-0.0272062
-int32_t zeroPS002 = 5900;
-// 97; // 81; // Программный ноль датчика
-
-bool powerOnTrigger_f = false;
-
-bool power = 0;
-
+uint8_t b = 0.0693713;                 // P(v) = 48.3355809*x-0.0272062
+int32_t zeroPS002 = 5900;              // 97; // 81; // Программный ноль датчика
 bool readADC_f = false;
+bool wifiUnable = 0; // preferences.getUInt("WiFi", false);
+
+// #endif
 
 float incomingPressureValue = 0.00;
-#endif
+bool powerOnTrigger_f = false;
+bool power = 0;
 
-Preferences preferences;
 uint8_t act = 0;
 unsigned long timer = 0;
 
@@ -82,11 +87,10 @@ String print_wakeup_reason()
 }
 #ifdef WIFIUPDATE
 bool wifiConnect = 1;
+// bool wifiUnable = false;
 #endif
 
 const String NAME = "ESP32C3";
-
-CS1237 ADC(SCK, DOUT);
 
 class ExportBluetoothLECallback : public BluetoothLECallback
 {
@@ -99,11 +103,11 @@ public:
   virtual void connectionStatusChanged(bool Status) override
   {
     if (!Status)
-    // {
-    //   Serial.println("connected");
-    //   powerOnTrigger_f = false;
-    // }
-    // else
+    /*     {
+          Serial.println("connected");
+          powerOnTrigger_f = false;
+        }
+        else*/
     {
       Serial.println("disconnected");
       powerOnTrigger_f = false;
@@ -112,7 +116,10 @@ public:
 };
 
 ExportBluetoothLECallback Callback;
+Preferences preferences;
+CS1237 ADC(SCK, DOUT);
 
+#ifdef PS002
 void zeroPS002Update()
 {
   int printZero = 0;
@@ -122,114 +129,137 @@ void zeroPS002Update()
   Serial.println("zeroPS002: " + (String)printZero);
   // BluetoothLE::printPS002("zeroPS002: " + (String)printZero);
 }
+#endif
 
 float getVolts()
 {
-  uint16_t sensorValue = 0;
   digitalWrite(VOLTAGE_DIVIDER, HIGH);
+  float sensorValue = 0;
   delay(5);
-  for (uint8_t i = 0; i < 10; sensorValue += analogRead(VOLT_PIN), i++)
+  for (uint8_t i = 0; i < 5; sensorValue += analogReadMilliVolts(VOLT_PIN), i++)
     ;
   digitalWrite(VOLTAGE_DIVIDER, LOW);
-  sensorValue /= 10;
-  float voltage = sensorValue * (3.3 / 4095.0);
-  voltage /= 1.16;
-  voltage *= 2;
+  sensorValue /= 5;
+  sensorValue = (sensorValue / 1000) * 2;
   // Serial.printf("Bat:%4.1fV \n", voltage);
-  BluetoothLE::printBat("Bat: " + (String)voltage + "V");
-  return voltage;
+  BluetoothLE::printBat("Bat: " + (String)sensorValue + "V");
+  return sensorValue;
 }
 
 void setup()
 {
   Serial.begin(115200);
   delay(500);
+
   Serial.println("Serial initialised");
   delay(500);
-
+#ifdef BLE
   BluetoothLE::init();
+#endif
+
 #ifdef WIFIUPDATE
-  //-------connet to Wifi-------------
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_LOGIN, WIFI_PASSWORD);
-  uint32_t notConnectedCounter = 0;
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(100);
-    Serial.println("Wifi connecting...");
-    notConnectedCounter++;
-    //--event:wifi not found--
-    if (notConnectedCounter > 10)
-    {
-      wifiConnect = 0;
-      Serial.println("!!WiFi not connecting. Turn on WiFi and reboot your device to reconnect!!");
-      goto SKIP_WEB_UI_BUILD;
-    }
-  }
-  Serial.println("Wifi connected, IP address: ");
-  Serial.println(WiFi.localIP());
-  ArduinoOTA.begin();
-SKIP_WEB_UI_BUILD:
-#endif
-
-#ifdef SLEEP
-  preferences.begin("bootCounter", false);
+  preferences.begin("WiFi", false);
 #ifdef FIRST_BOOT
-  uint8_t bootCount = 0;
+  wifiUnable = 0;
+  preferences.putUInt("WiFi", 0);
 #endif
+
 #ifndef FIRST_BOOT
-  uint8_t bootCount = preferences.getUInt("counter", 0);
-  ++bootCount;
+  wifiUnable = preferences.getUInt("WiFi", false);
 #endif
-  Serial.println("Boot number: " + String(bootCount));
-  Serial.println(print_wakeup_reason());
-  preferences.putUInt("counter", bootCount);
+
   preferences.end();
+  if (wifiUnable)
+  {
+    //-------connet to Wifi-------------
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_LOGIN, WIFI_PASSWORD);
+    uint32_t notConnectedCounter = 0;
 
-  if (bootCount < 2)
-  {
-    Serial.println("WakeUP configure GPIO");
-    esp_deep_sleep_enable_gpio_wakeup(BUTTON_PIN_BITMASK, ESP_GPIO_WAKEUP_GPIO_HIGH); // GPIO_NUM_4
-    esp_deep_sleep_start();
-  }
-  else if (bootCount == 2)
-  {
-    Serial.println("ESP32 reset");
-    ESP.restart();
-  }
-  else if (bootCount >= 3)
-  {
-    Serial.println("WakeUP configure TIMER");
-    esp_sleep_enable_timer_wakeup(120000000);
-    esp_deep_sleep_start();
-  }
+    while (WiFi.status() != WL_CONNECTED)
+    {
+      delay(100);
+      Serial.println("Wifi connecting...");
+      notConnectedCounter++;
+      //--event:wifi not found--
+      if (notConnectedCounter > 10)
+      {
+        wifiConnect = 0;
+        Serial.println("!!WiFi not connecting. Turn on WiFi and reboot your device to reconnect!!");
+      }
+    }
 
+    ArduinoOTA.begin();
+    Serial.println("Wifi connected, IP address: ");
+    Serial.println(WiFi.localIP());
+    /* preferences.begin("WiFi", false);
+    preferences.putUInt("WiFi", 0);
+    preferences.end(); */
+  }
 #endif
-  //-----------------------------------
-  pinMode(MOVE_OPEN_PIN, OUTPUT);
-  pinMode(MOVE_CLOSE_PIN, OUTPUT);
-
   pinMode(VOLTAGE_DIVIDER, OUTPUT);
   pinMode(VOLT_PIN, INPUT);
+  if (!wifiUnable)
+  {
+#ifdef SLEEP
+    preferences.begin("bootCounter", false);
+#ifdef FIRST_BOOT
+    uint8_t bootCount = 0;
+#endif
+#ifndef FIRST_BOOT
+    uint8_t bootCount = preferences.getUInt("counter", 0);
+    ++bootCount;
+#endif
+    Serial.println("Boot number: " + String(bootCount));
+    Serial.println(print_wakeup_reason());
+    preferences.putUInt("counter", bootCount);
+    preferences.end();
 
-  if (ADC.configure(PGA_2, SPEED_1280, CHANNEL_A))
-    Serial.println("success");
-  else
-    Serial.println("failed");
+    /* if (bootCount < 2)
+    {
+      Serial.println("WakeUP configure GPIO");
+      esp_deep_sleep_enable_gpio_wakeup(BUTTON_PIN_BITMASK, ESP_GPIO_WAKEUP_GPIO_HIGH); // GPIO_NUM_4
+      esp_deep_sleep_start();
+    }
+    else if (bootCount == 2)
+    {
+      Serial.println("ESP32 reset");
+      ESP.restart();
+    }
+    else if (bootCount >= 3)
+    {
+      // Serial.println("WakeUP configure TIMER");
+      // esp_sleep_enable_timer_wakeup(120000000);
+      // esp_deep_sleep_start();
+    }
+  */
+#endif
+    //-----------------------------------
+    pinMode(MOVE_OPEN_PIN, OUTPUT);
+    pinMode(MOVE_CLOSE_PIN, OUTPUT);
 
-  // ADC.end_reading();
+#ifdef PS002
+    if (ADC.configure(PGA_2, SPEED_1280, CHANNEL_A))
+      Serial.println("success");
+    else
+      Serial.println("failed");
 
-  BluetoothLE::setCallback(&Callback);
-  getVolts();
+    // ADC.end_reading();
+    ADC.sleep(true);
 
-  ADC.sleep(true);
-
-  ADC.start_reading();
-  // delay(1000);
-  // zeroPS002Update();
+    ADC.start_reading();
+#endif
+    // delay(1000);
+    // zeroPS002Update();
 #ifdef SLEEP
 // // Serial.println("Sleep");
 // esp_deep_sleep_start();
+#endif
+  }
+
+#ifdef BLE
+  BluetoothLE::setCallback(&Callback);
+  getVolts();
 #endif
   Serial.println("Initialise complete");
 }
@@ -333,9 +363,9 @@ void loop()
     }
     getPressurePS002();
   } */
-#ifdef WIFIUPDATE
-  ArduinoOTA.handle();
-#endif
+  /* #ifdef WIFIUPDATE
+    ArduinoOTA.handle();
+  #endif */
 
   /*   if (incomingPressureValue != 0)
     {
@@ -383,7 +413,16 @@ void loop()
       }
     } */
 
+#ifdef WIFIUPDATE
+  if (wifiUnable)
+    ArduinoOTA.handle();
+    // else
+    // {
+#endif
+
+#ifdef PS002
   getPressurePS002();
+  getVolts();
   if (incomingPressureValue == 2)
   {
     Moving(0);
@@ -410,4 +449,24 @@ void loop()
       incomingPressureValue = 0;
     }
   }
+#endif
+#ifdef WIFIUPDATE
+  // }
+  if (incomingPressureValue == 100)
+  {
+    preferences.begin("WiFi", false);
+    preferences.putUInt("WiFi", 1);
+    preferences.end();
+    ESP.restart();
+  }
+
+  if (incomingPressureValue == 200)
+  {
+    WiFi.disconnect(1, 1);
+    preferences.begin("WiFi", false);
+    preferences.putUInt("WiFi", 0);
+    preferences.end();
+    ESP.restart();
+  }
+#endif
 }
