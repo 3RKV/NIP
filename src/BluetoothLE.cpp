@@ -30,6 +30,9 @@ void BluetoothLE::ServerCallbacks::onConnect(NimBLEServer *pServer, ble_gap_conn
     // deviceConnected = true;
     Serial.println("Device connected");
     _bluetoothLECallback->connectionStatusChanged(true);
+    NimBLEDevice::startAdvertising();
+    Serial.print("Client address: ");
+    Serial.println(NimBLEAddress(desc->peer_ota_addr).toString().c_str());
 }
 
 void BluetoothLE::ServerCallbacks::onDisconnect(NimBLEServer *pServer, ble_gap_conn_desc *desc)
@@ -37,14 +40,17 @@ void BluetoothLE::ServerCallbacks::onDisconnect(NimBLEServer *pServer, ble_gap_c
     // deviceConnected = false;
     Serial.println("Device disconnected");
     _bluetoothLECallback->connectionStatusChanged(false);
+    NimBLEDevice::startAdvertising();
 }
 
 void BluetoothLE::init()
 {
     NimBLEDevice::init("ESP32C3");
+    NimBLEDevice::setPower(ESP_PWR_LVL_P9);
     pServer = NimBLEDevice::createServer();
+    pServer->setCallbacks(new ServerCallbacks());
     pValueService = pServer->createService(SERVICE_UUID);
-    
+
     pPS002Characteristic = pValueService->createCharacteristic(
         PS002_CHARACTERISTIC_UUID,
         NIMBLE_PROPERTY::READ |
@@ -70,15 +76,17 @@ void BluetoothLE::init()
         NIMBLE_PROPERTY::WRITE |
             NIMBLE_PROPERTY::NOTIFY);
 
+    pressureCharacteristic->setCallbacks(new pressureCharacteristicCallbacks());
+
     pValueService->start();
 
     pAdvertising = NimBLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(SERVICE_UUID); // Добавление сервиса в службу рассылки
     pAdvertising->setAppearance(0x0180);
+    pAdvertising->setScanResponse(true);
     pAdvertising->start();
     // pPS002Characteristic->setValue("");
     // KCharacteristic
-    pressureCharacteristic->setCallbacks(new pressureCharacteristicCallbacks());
 }
 
 void BluetoothLE::printPS002(const String &val)

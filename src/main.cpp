@@ -98,6 +98,8 @@ public:
   virtual void pressureSettingsChanged(String newValue) override
   {
     incomingPressureValue = newValue.toFloat();
+    // if (incomingPressureValue>0) 
+    BluetoothLE::printStatus((String)incomingPressureValue);
     Serial.println("Callback:" + (String)incomingPressureValue);
   };
   virtual void connectionStatusChanged(bool Status) override

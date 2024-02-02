@@ -48,7 +48,7 @@ private:
     {
         void onConnect(NimBLEServer *pServer, ble_gap_conn_desc *desc);
         void onDisconnect(NimBLEServer *pServer, ble_gap_conn_desc *desc);
-        void onAuthenticationComplete(ble_gap_conn_desc *desc);
+        // void onAuthenticationComplete(ble_gap_conn_desc *desc);
     };
 
     class pressureCharacteristicCallbacks : public NimBLECharacteristicCallbacks
